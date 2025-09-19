@@ -11,7 +11,7 @@ $ftphost = "matthewrstreeter.com"
 $localPath = "/Users/matthew/Library/Containers/com.ootpdevelopments.ootp25macqlm/Data/Application Support/Out of the Park Developments/OOTP Baseball 25/saved_games/NPBL.lg/import_export/mysql/"
 $remotePath = "/home/mstreeter06/matthewrstreeter.com/ootp/npbl/sql/"
 $FileFilter = "*.mysql.sql"
-$commishBotNPBL = 'xoxb-9672629254-8044485288341-CYkUWWuvwtotkTSJQLueHEu7'
+$commishBotNPBL = 'xoxb-'
 $slackToken = $commishBotNPBL #OAuth Token
 $customUsername = "StatsLab Bot" #Custom Bot Username
 $channelId = 'C09KSJH9U' #commish_news - #Channel ID or Channel Name
@@ -101,4 +101,5 @@ lftp -c "$lftpCommands"
 Update-StatsLabNPBL
 
 # Send Slack message to commish-news about StatsLab being updated
+
 Send-SlackMessage -slackToken $slackToken -channelId $channelId -customUsername $customUsername -message $message -iconEmoji ":baseball-field:"
