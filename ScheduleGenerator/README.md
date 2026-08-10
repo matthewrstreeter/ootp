@@ -1,38 +1,43 @@
 # OOTP Schedule Generator
 
-This script generates a custom OOTP Baseball schedule in XML format for a league structure with multiple subleagues, divisions, and teams. It is built to support balanced intra-division schedules, mixed-length series, optional interleague play, and a dynamic All-Star Game placement.
+This script generates custom OOTP baseball schedule files in XML format for leagues with multiple subleagues, divisions, and teams. It supports balanced intra-division scheduling, mixed-length series, optional interleague play, and dynamic All-Star Game placement.
 
-The output is intended for use as an OOTP `.lsdl` schedule file.
+## Table of Contents
 
-## Overview
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Features](#features)
+- [Usage](#usage)
+- [Command-Line Parameters](#command-line-parameters)
+- [Interactive Schedule Breakdown Selection](#interactive-schedule-breakdown-selection)
+- [Game Distribution Logic](#game-distribution-logic)
+- [All-Star Game Placement](#all-star-game-placement)
+- [Output](#output)
+- [Notes](#notes)
 
-The generator:
+---
 
-- builds a round-robin structure for each division
-- creates cross-division and interleague pairings
-- distributes games into series lengths such as 2-game, 3-game, and 4-game series
-- balances home/away splits
-- slots games across the calendar to produce a realistic season layout
-- optionally forces an All-Star break on a target calendar day or weekday
+<h2><u>Script</u></h2>
 
-## Features
+### ootp_schedule_generator.py
 
-- Supports multiple subleagues and divisions
-- Configurable teams per division
-- Adjustable total games per team
+Generates a full season schedule for an OOTP league, including home/away balancing, mixed series lengths, and calendar spacing to produce a realistic season structure. The output is intended for use as an OOTP `.lsdl` schedule file.
+
+**Prerequisites:**
+- Python 3
+- No external dependencies required
+
+**Features:**
+- Multiple subleagues and divisions
+- Configurable team counts per division
+- Adjustable games per team
+- Support for mixed 2-game, 3-game, and 4-game series
 - Optional interleague play
-- Mixed-series scheduling (not limited to pure 3-game blocks)
-- Interactive breakdown selection by default, or automated selection with `--non-interactive`
+- Auto or interactive valid distribution selection
 - XML output compatible with OOTP schedule imports
-- All-Star Game placement logic with before/after break windows
+- Dynamic All-Star Game placement based on date or weekday constraints
 
-## Script
-
-- Main script: `ootp_schedule_generator.py`
-
-## Quick Start
-
-Run the script with inputs for the league setup you want:
+**Usage:**
 
 ```bash
 python ootp_schedule_generator.py \
@@ -45,7 +50,6 @@ python ootp_schedule_generator.py \
 ```
 
 This creates a schedule for:
-
 - 2 subleagues
 - 2 divisions per subleague
 - 4 teams per division
@@ -53,57 +57,43 @@ This creates a schedule for:
 - interleague play enabled
 - automatic selection of the top valid schedule breakdown
 
-## Command-Line Options
+**Command-Line Parameters:**
+- `-s, --subleagues`: Number of subleagues in the league.
+- `-d, --divisions`: Number of divisions in each subleague.
+- `-t, --teams-per-div`: Number of teams in each division.
+- `-g, --games`: Total games per team for the season.
+- `-il, --interleague`: Enable or disable interleague play (`0` or `1`).
+- `-bg, --balanced`: Toggle balanced scheduling behavior (`0` or `1`).
+- `-a, --allstar-game-day`: Target calendar day for the All-Star Game.
+- `-aw, --asg-weekday`: Force the All-Star Game to a specific weekday such as `Thursday`.
+- `-ab, --asg-before`: Number of days to reserve before the break.
+- `-aa, --asg-after`: Number of days to reserve after the break.
+- `-sdw, --start-day-of-week`: Day of the week the schedule should begin on.
+- `-sm, --start-month`: Month the schedule should begin in.
+- `-sd, --start-day`: Day of the month the schedule should begin on.
+- `-o, --output`: Custom output filename for the generated XML.
+- `--non-interactive`: Skip the breakdown prompt and automatically choose the first valid option.
 
-```bash
-usage: ootp_schedule_generator.py [-h]
-  -s --subleagues
-  -d --divisions
-  -t --teams-per-div
-  -g --games
-  -il --interleague {0,1}
-  -bg --balanced {0,1}
-  -a --allstar-game-day
-  -aw --asg-weekday
-  -ab --asg-before
-  -aa --asg-after
-  -sdw --start-day-of-week
-  -sm --start-month
-  -sd --start-day
-  -o --output
-  --non-interactive
-```
+**Interactive Schedule Breakdown Selection:**
 
-### Important arguments
+When the script runs in interactive mode, it displays all valid schedule breakdown combinations and prompts the user to choose the option that best fits the league setup.
 
-- `-s, --subleagues`: number of subleagues
-- `-d, --divisions`: number of divisions in each subleague
-- `-t, --teams-per-div`: team count in each division
-- `-g, --games`: games per team in the season
-- `-il, --interleague`: enable or disable interleague games
-- `-a, --allstar-game-day`: target calendar day for the All-Star Game
-- `-aw, --asg-weekday`: force the All-Star Game to a specific weekday such as `Thursday`
-- `-ab, --asg-before`: days before the break to reserve
-- `-aa, --asg-after`: days after the break to reserve
-- `-sdw, --start-day-of-week`: day the schedule should begin on (for example Monday or Friday)
-- `-sm, --start-month`: month of the first scheduled day
-- `-sd, --start-day`: day of the month for the first scheduled game
-- `-o, --output`: custom output filename
-- `--non-interactive`: skip the breakdown prompt and choose the top valid option automatically
+![Interactive schedule breakdown selection](./schedule_breakdown_selection.png)
 
-## Game Distribution Logic
+This prompt shows the available distribution options, the selected choice, and the generated season summary after the schedule is created.
 
-The script validates possible game distributions before generating the schedule. It looks for combinations that match the league structure and the total number of games. These are then displayed as schedule options, for example:
+**Game Distribution Logic:**
 
+The script validates possible game distributions before generating the schedule. It looks for combinations that match the league structure and the total number of games, then presents the valid options to the user. These can include:
 - all 3-game series
 - mixed 3-game and 4-game series
 - mixed 2-game and 3-game series
 
-The script prefers valid configurations that preserve balanced home/away totals and can present several possible options to the user.
+The generator prefers valid configurations that maintain a balanced home/away split and realistic series spacing.
 
-## All-Star Game Placement
+**All-Star Game Placement:**
 
-When `-a` or `-aw` is provided, the script tries to position an All-Star break in the calendar while keeping the season structure coherent. This is especially useful when the schedule must line up with a specific weekday or day number.
+When `-a` or `-aw` is provided, the script attempts to place the All-Star break in a realistic calendar position while preserving the season structure. This is especially useful when the schedule must align with a target weekday or date.
 
 Example:
 
@@ -119,9 +109,9 @@ python ootp_schedule_generator.py \
   -sd 1
 ```
 
-This places the All-Star Game on or near calendar day 105, adjusted to the requested weekday while respecting the before/after break spacing.
+This places the All-Star Game near calendar day 105 while respecting the requested weekday and spacing around the break.
 
-## Output File
+**Output:**
 
 The script writes an XML schedule file to the current directory by default, using names such as:
 
@@ -129,8 +119,7 @@ The script writes an XML schedule file to the current directory by default, usin
 ILY_BGN_G162_SL1_D2_T4_SL2_D2_T4.lsdl
 ```
 
-The file contains a root `SCHEDULE` element with attributes like:
-
+The file contains a root `SCHEDULE` element with attributes including:
 - `type`
 - `inter_league`
 - `balanced_games`
@@ -140,28 +129,16 @@ The file contains a root `SCHEDULE` element with attributes like:
 - `start_day`
 
 Each game is written as a `<GAME>` element with:
-
 - `day`
 - `time`
 - `away`
 - `home`
 
-## Notes
-
-- If run in an interactive terminal, the script asks the user to select a valid game distribution.
+**Notes:**
+- If the script is run in an interactive terminal, it asks the user to select a valid game distribution.
 - If `stdin` is not a TTY or `--non-interactive` is passed, it automatically chooses the first valid distribution.
 - The schedule format is intended for OOTP import and is not a general baseball scheduling library.
 
-## Example Output Summary
+---
 
-When complete, the script prints a summary like:
-
-```text
-Generated 3240 total games across 16 teams.
-All-Star Game scheduled dynamically for Day 105 (Thursday)
-File saved to: ILY_BGN_G162_SL1_D2_T4_SL2_D2_T4.lsdl
-```
-
-## License
-
-This project is provided as-is for personal or league-use scheduling work. If you are using it outside your own environment, confirm any license or usage requirements associated with your broader project.
+This script is designed for personal and league-use scheduling work. It is provided as-is and can be adapted to fit a specific league format or custom OOTP setup.
