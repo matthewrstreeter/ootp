@@ -464,8 +464,12 @@ def main():
     asg_weekday_num = DAY_MAP.get(str(args.asg_weekday).lower()) if args.asg_weekday else None
 
     il_flag = str(args.interleague) if args.interleague is not None else ("1" if args.subleagues > 1 else "0")
-    il_prefix = "ILY_BGN" if il_flag == "1" else "ILN_BGN"
     bg_flag = str(args.balanced)
+    
+    il_str = "ILY" if il_flag == "1" else "ILN"
+    bg_str = "BGY" if bg_flag == "1" else "BGN"
+    
+    il_prefix = f"{il_str}_{bg_str}"
 
     d_opp = args.teams_per_div - 1
     s_opp = (args.divisions - 1) * args.teams_per_div
