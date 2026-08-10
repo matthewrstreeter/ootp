@@ -181,7 +181,7 @@ def prompt_user_for_distribution(solutions, d_opp, s_opp, i_opp):
 
 
 def build_dynamic_schedule(
-    subleagues, divs_per_sl, teams_per_div, total_games, chosen_sol, interleague=True
+    subleagues, divs_per_sl, teams_per_div, total_games, chosen_sol, interleague=True, end_divisional=3
 ):
     team_id = 1
     structure = {}
@@ -259,14 +259,26 @@ def build_dynamic_schedule(
                     })
                 inter_windows.append(window)
 
+    reserved_div_windows = []
+    
+    # Check if there are multiple divisions and if we have enough divisional windows to reserve
+    if divs_per_sl > 1 and end_divisional > 0 and len(div_windows) > end_divisional:
+        reserved_div_windows = div_windows[-end_divisional:]
+        div_windows = div_windows[:-end_divisional]
+
     windows = []
     all_series_lists = [div_windows, sub_windows, inter_windows]
-    max_len = max(len(lst) for lst in all_series_lists)
+    
+    # Safely handle the max length if a list ends up empty
+    max_len = max(len(lst) for lst in all_series_lists) if any(all_series_lists) else 0
 
     for idx in range(max_len):
         for lst in all_series_lists:
             if idx < len(lst):
                 windows.append(lst[idx])
+
+    # Append the reserved divisional series to guarantee they conclude the season
+    windows.extend(reserved_div_windows)
 
     return windows, total_teams
 
@@ -441,6 +453,7 @@ def main():
     parser.add_argument("-sd", "--start-day", type=int, default=1)
     parser.add_argument("-o", "--output", type=str, default=None)
     parser.add_argument("--non-interactive", action="store_true", help="Auto-select top breakdown option")
+    parser.add_argument("-ed", "--end-divisional", type=int, default=3, help="Number of divisional series reserved strictly for the end of the season")
 
     args = parser.parse_args()
 
@@ -474,7 +487,9 @@ def main():
     filename = args.output if args.output else f"{type_attr}.lsdl"
 
     windows, total_teams = build_dynamic_schedule(
-        args.subleagues, args.divisions, args.teams_per_div, args.games, chosen_sol, interleague=(il_flag == "1")
+        args.subleagues, args.divisions, args.teams_per_div, args.games, chosen_sol, 
+        interleague=(il_flag == "1"), 
+        end_divisional=args.end_divisional
     )
     
     slotted_games, final_asg_day = expand_to_slotted_games(
