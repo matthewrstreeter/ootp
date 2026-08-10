@@ -32,11 +32,12 @@ Generates a full season schedule for an OOTP league, including home/away balanci
 - Configurable team counts per division
 - Adjustable games per team
 - Mixed-length series support, including standard 2/3/4-game patterns and MLB-style odd/split logic such as 6/7 and 3/4
-- Optional interleague play
+- Optional interleague play, with default enabling when more than one subleague is present
 - Auto or interactive valid distribution selection, including exact-match breakdown previews
 - XML output compatible with OOTP schedule imports
 - Dynamic All-Star Game placement based on target day or weekday
 - Reserved end-of-season divisional windows to close the schedule cleanly
+- Realistic calendar packing with consecutive-day limits and deliberate final-weekend lock-in behavior
 - Optional balanced-game XML flag written as `balanced_games`
 - Home/away balancing and series reordering logic to reduce parity drift across the season
 
@@ -168,9 +169,8 @@ Each game is written as a `<GAME>` element with:
 - If `stdin` is not a TTY or `--non-interactive` is passed, it automatically chooses the first valid distribution.
 - `-aw` overrides the target date from `-a` when both are present.
 - `start_day_of_week` is encoded on a Sunday-to-Saturday scale (`1-7`) to match the script’s internal weekday calculations.
-- The script now preserves both the target total game count and the exact split-series structure, including MLB-style odd totals and asymmetrical series patterns.
+- The script preserves both the target total game count and the exact split-series structure, including MLB-style odd totals and asymmetrical series patterns.
+- The seasonal packing logic keeps series spaced realistically while reserving a final divisional closing stretch when `-ed` is used.
 - The schedule format is intended for OOTP import and is not a general baseball scheduling library.
 
 ---
-
-This script is designed for personal and league-use scheduling work. It is provided as-is and can be adapted to fit a specific league format or custom OOTP setup.
