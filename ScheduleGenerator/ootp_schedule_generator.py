@@ -153,13 +153,15 @@ def find_all_valid_distributions(total_games, d_opp, s_opp, i_opp, is_balanced=F
                 continue
 
             if i_opp > 0:
+                # Prevent zero-game interleague distributions if interleague is enabled
+                if rem == 0:
+                    continue
+                    
                 g_i = rem // i_opp
                 i_rem = rem % i_opp
                 
-                # FIX 2: Remove the "if g_i % 2 == 0" check.
-                
                 # Condition A: Perfect Math (Fictional setups)
-                if i_rem == 0:
+                if i_rem == 0 and g_i > 0:
                     valid_sols.append({
                         "g_div": g_d, "div_total": d_opp * g_d,
                         "g_sub": g_s, "sub_total": s_opp * g_s, "sub_extra": 0,
@@ -169,7 +171,6 @@ def find_all_valid_distributions(total_games, d_opp, s_opp, i_opp, is_balanced=F
                     })
                 
                 # Condition B: MLB Split Math (13 Div, 6/7 Sub, 3/4 Inter)
-                # If there are exactly 5 remaining games (4 to subleague, 1 to rival)
                 elif g_d == 13 and g_s == 6 and g_i == 3 and i_rem == 5:
                     valid_sols.append({
                         "g_div": g_d, "div_total": d_opp * g_d,
