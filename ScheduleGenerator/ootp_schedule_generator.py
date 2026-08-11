@@ -189,8 +189,10 @@ def find_all_valid_distributions(total_games, d_opp, s_opp, i_opp, is_balanced=F
                         "is_pure_3g": (g_d % 3 == 0 and g_s % 3 == 0)
                     })
 
-    # Sort logic will need a slight adjustment if string representations like "6/7" are used.
-    # We can handle that in the prompt_user_for_distribution function.
+    # Sort heavily divisional options to the top (descending)
+    # We use 'sub_total' instead of 'g_sub' to safely avoid string comparison errors
+    valid_sols.sort(key=lambda x: (x["g_div"], x["is_pure_3g"], x["sub_total"]), reverse=True)
+
     return valid_sols
 
 
