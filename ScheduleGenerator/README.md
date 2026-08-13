@@ -13,6 +13,7 @@ This script generates custom OOTP baseball schedule files in XML format for leag
 - [Game Distribution Logic](#game-distribution-logic)
 - [All-Star Game Placement](#all-star-game-placement)
 - [Output](#output)
+- [HTML Schedule Report](#html-schedule-report)
 - [Notes](#notes)
 
 ---
@@ -39,6 +40,7 @@ Generates a full season schedule for an OOTP league, including home/away balanci
 - Realistic calendar packing with consecutive-day limits and deliberate final-weekend lock-in behavior
 - Optional balanced-game XML flag written as `balanced_games`
 - Home/away balancing and series reordering logic to reduce parity drift across the season
+- **Automatic HTML schedule report generation** with interactive grid and evaluation metrics
 
 **Usage:**
 
@@ -134,16 +136,34 @@ If both `-a` and `-aw` are provided, the weekday override takes precedence.
 
 **Output:**
 
-The script writes an XML schedule file to the current directory by default, using names such as:
+The script writes an XML schedule file to the current directory (within an `assets/` subdirectory) by default, using names such as:
 
 ```text
-ILY_BGN_G162_SL1_D2_T4_SL2_D2_T4.lsdl
-ILY_BGY_G162_SL1_D2_T4_SL2_D2_T4.lsdl
+assets/ILY_BGN_G162_SL1_D2_T4_SL2_D2_T4.lsdl
+assets/ILY_BGY_G162_SL1_D2_T4_SL2_D2_T4.lsdl
 ```
 
 The `BGY` segment is used when `-bg 1` is enabled; otherwise the filename uses `BGN`. This keeps the file name consistent with the XML `balanced_games` flag and avoids the older issue where both outputs were labeled as `BGY`.
 
-The generated file contains a root `SCHEDULE` element with attributes including:
+**HTML Schedule Report:**
+
+An accompanying HTML file is automatically generated with the same base name but `.html` extension:
+
+```text
+assets/ILY_BGN_G162_SL1_D2_T4_SL2_D2_T4.html
+```
+
+The HTML report includes:
+- **Schedule Evaluation Table**: Home/away game counts for each team, useful for validating balance
+- **Interactive Schedule Grid**: Color-coded team-by-day matrix with sticky headers for easy navigation
+  - **Green (`vs`)**: Home game
+  - **Red (`@`)**: Away game
+  - Days (Y-axis) and Teams (X-axis) remain visible when scrolling
+- **Legend**: Clear explanation of the color coding
+
+This provides a quick visual inspection tool for verifying the schedule balance and structure before importing into OOTP.
+
+The generated XML file contains a root `SCHEDULE` element with attributes including:
 - `type`
 - `inter_league`
 - `balanced_games`
@@ -166,6 +186,9 @@ Each game is written as a `<GAME>` element with:
 - `start_day_of_week` is encoded on a Sunday-to-Saturday scale (`1-7`) to match the script’s internal weekday calculations.
 - The script preserves both the target total game count and the exact series structure.
 - The schedule format is intended for OOTP import and is not a general baseball scheduling library.
+- The `assets/` directory is created automatically if it does not exist.
+- Both the XML (`.lsdl`) and HTML (`.html`) files are generated with matching base names for easy correlation.
+- The HTML report provides a quick visual reference for schedule validation before OOTP import.
 
 ---
 
