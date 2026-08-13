@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
@@ -108,7 +109,7 @@ def generate_bipartite_rounds(group_a, group_b):
     return rounds
 
 
-def find_all_valid_distributions(total_games, d_opp, s_opp, i_opp):
+def find_all_valid_distributions(total_games, d_opp, s_opp, i_opp, is_balanced=False):
     """Finds all valid game breakdown configurations (allowing mixed series lengths)."""
     valid_sols = []
 
@@ -455,6 +456,113 @@ def expand_to_slotted_games(windows, target_asg_day=0, asg_before=2, asg_after=1
     return sorted(slotted_games, key=lambda x: (x["day"], x["home"])), actual_asg_day
 
 
+def generate_html_report(slotted_games, total_teams, html_filename):
+    """Generates a standalone HTML file with a schedule grid and evaluation metrics."""
+    if not slotted_games:
+        return
+
+    max_day = max(g["day"] for g in slotted_games)
+    
+    # Initialize data structures
+    grid = {t: {d: "" for d in range(1, max_day + 1)} for t in range(1, total_teams + 1)}
+    metrics = {t: {"home": 0, "away": 0} for t in range(1, total_teams + 1)}
+    
+    # Populate data
+    for g in slotted_games:
+        day, h, a = g["day"], g["home"], g["away"]
+        grid[h][day] = f"vs {a}"
+        grid[a][day] = f"@ {h}"
+        metrics[h]["home"] += 1
+        metrics[a]["away"] += 1
+
+    # Build HTML string
+    html = [
+        "<!DOCTYPE html>",
+        "<html><head><title>Schedule Preview</title>",
+        "<style>",
+        "body { font-family: sans-serif; padding: 20px; color: #333; }",
+        ".table-container { overflow: auto; max-width: 100%; max-height: 85vh; border: 1px solid #ccc; }",
+        "table { border-collapse: collapse; white-space: nowrap; font-size: 13px; min-width: 100%; }",
+        "th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: center; }",
+        "th { background-color: #f4f4f4; font-weight: bold; }",
+        "th.sticky-top { position: sticky; top: 0; z-index: 2; }",
+        "th.sticky-left { position: sticky; left: 0; z-index: 2; }",
+        "th.sticky-corner { position: sticky; top: 0; left: 0; z-index: 3; }",
+        "td { background-color: #fff; }",
+        ".home { color: #2ca02c; font-weight: bold; }", 
+        ".away { color: #d62728; font-weight: bold; }",
+        ".legend { font-size: 14px; margin-bottom: 12px; }",
+        "</style></head><body>"
+    ]
+    
+    # --- Evaluation View ---
+    html.append("<h2>Schedule Evaluation</h2>")
+    html.append("<div style='max-width: 400px;'><table style='min-width: 100%;'>")
+    html.append("<tr><th>Team ID</th><th>Home Games</th><th>Away Games</th><th>Total</th></tr>")
+    for t in range(1, total_teams + 1):
+        total_g = metrics[t]['home'] + metrics[t]['away']
+        html.append(f"<tr><th>T{t}</th><td>{metrics[t]['home']}</td><td>{metrics[t]['away']}</td><td>{total_g}</td></tr>")
+    html.append("</table></div><br>")
+    
+    # --- Grid View ---
+    html.append("<h2>Schedule Grid</h2>")
+    
+    # Legend
+    html.append("<div class='legend'>")
+    html.append("<strong>Legend:</strong> <span class='home'>Green (vs) = Home Game</span> &nbsp;|&nbsp; <span class='away'>Red (@) = Away Game</span>")
+    html.append("</div>")
+    
+    html.append("<div class='table-container'><table>")
+    
+    # Header Row (Teams on X-Axis)
+    html.append("<tr><th class='sticky-corner'>Day</th>")
+    for t in range(1, total_teams + 1):
+        html.append(f"<th class='sticky-top'>T{t}</th>")
+    html.append("</tr>")
+    
+    # Day Rows (Days on Y-Axis)
+    for d in range(1, max_day + 1):
+        html.append(f"<tr><th class='sticky-left'>D{d}</th>")
+        for t in range(1, total_teams + 1):
+            cell = grid[t][d]
+            cls = "home" if "vs" in cell else "away" if "@" in cell else ""
+            html.append(f"<td class='{cls}'>{cell}</td>")
+        html.append("</tr>")
+        
+    html.append("</table></div>")
+    html.append("</body></html>")
+    
+    with open(html_filename, "w") as f:
+        f.write("\n".join(html))
+
+
+def generate_preview_data(slotted_games, total_teams):
+    """Generates evaluation metrics and schedule grid data for frontend JSON consumption."""
+    if not slotted_games:
+        return {"grid": {}, "metrics": {}, "max_day": 0, "total_teams": total_teams}
+
+    max_day = max(g["day"] for g in slotted_games)
+    
+    # Initialize data structures
+    grid = {str(t): {str(d): "" for d in range(1, max_day + 1)} for t in range(1, total_teams + 1)}
+    metrics = {str(t): {"home": 0, "away": 0} for t in range(1, total_teams + 1)}
+    
+    # Populate data
+    for g in slotted_games:
+        day, h, a = str(g["day"]), str(g["home"]), str(g["away"])
+        grid[h][day] = f"vs {a}"
+        grid[a][day] = f"@ {h}"
+        metrics[h]["home"] += 1
+        metrics[a]["away"] += 1
+
+    return {
+        "grid": grid,
+        "metrics": metrics,
+        "max_day": max_day,
+        "total_teams": total_teams
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="OOTP Schedule XML Generator supporting Mixed-Length Series & Interactive Options"
@@ -508,7 +616,14 @@ def main():
 
     sl_parts = [f"SL{sl}_" + "_".join([f"D{d}_T{args.teams_per_div}" for d in range(1, args.divisions + 1)]) for sl in range(1, args.subleagues + 1)]
     type_attr = f"{il_prefix}_G{args.games}_" + "_".join(sl_parts)
-    filename = args.output if args.output else f"{type_attr}.lsdl"
+
+    # Ensure the assets directory exists
+    output_dir = "assets"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Prefix the filename with the assets directory
+    base_filename = args.output if args.output else f"{type_attr}.lsdl"
+    filename = os.path.join(output_dir, base_filename)
 
     windows, total_teams = build_dynamic_schedule(
         args.subleagues, args.divisions, args.teams_per_div, args.games, chosen_sol, interleague=(il_flag == "1")
@@ -545,6 +660,10 @@ def main():
     xmlstr = minidom.parseString(ET.tostring(root)).toprettyxml(indent="  ")
     with open(filename, "w") as f:
         f.write(xmlstr)
+
+    # --- NEW: Generate the HTML report ---
+    html_filename = filename.replace(".lsdl", ".html")
+    generate_html_report(slotted_games, total_teams, html_filename)
 
     print(f"\nGenerated {len(slotted_games)} total games across {total_teams} teams.")
     if final_asg_day > 0:
