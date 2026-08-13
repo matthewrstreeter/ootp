@@ -34,35 +34,8 @@ def get_weekday(day_index, start_day):
     return (start_day - 1 + day_index - 1) % 7 + 1
 
 
-def decompose_games_to_series(total_games_val):
-    """Decomposes a game count per opponent into 3-game, 2-game, and 4-game series."""
-    # Safely parse if string "6/7" is passed from the MLB split logic
-    if isinstance(total_games_val, str):
-        if '/' in total_games_val:
-            total_games_per_opp = int(total_games_val.split('/')[0])
-        elif total_games_val == "N/A":
-            return []
-        else:
-            total_games_per_opp = int(total_games_val)
-    else:
-        total_games_per_opp = int(total_games_val)
-        
-    if total_games_per_opp <= 0:
-        return []
-
-    # Hardcoded MLB asymmetrical odd-math configurations
-    if total_games_per_opp == 13:
-        return [4, 3, 3, 3]
-    if total_games_per_opp == 7:
-        return [4, 3]
-    if total_games_per_opp == 6:
-        return [3, 3]
-    if total_games_per_opp == 4:
-        return [4]
-    if total_games_per_opp == 3:
-        return [3]
-
-    # Original Fallback for symmetrical/fictional configurations
+def decompose_games_to_series(total_games_per_opp):
+    """Decomposes a game count per opponent into 3-game, 2-game, and 4-game series (1:1 H/A split)."""
     half_games = total_games_per_opp // 2
     
     rem = half_games
@@ -135,71 +108,47 @@ def generate_bipartite_rounds(group_a, group_b):
     return rounds
 
 
-def find_all_valid_distributions(total_games, d_opp, s_opp, i_opp, is_balanced=False):
-    """Finds all valid game breakdown configurations, allowing for MLB's odd/split series."""
+def find_all_valid_distributions(total_games, d_opp, s_opp, i_opp):
+    """Finds all valid game breakdown configurations (allowing mixed series lengths)."""
     valid_sols = []
 
-    # FIX 1: Change the step from 2 to 1 to allow odd game totals like 13 and 3
-    for g_d in range(2, total_games + 1):
-        for g_s in range(2 if s_opp > 0 else 0, total_games + 1):
-            
-            if is_balanced and s_opp > 0 and g_d != g_s:
-                continue
-                
+    # Update range to start at 4 instead of 2 to avoid impossible 1:1 H/A splits
+    for g_d in range(4, total_games + 1, 2):
+        for g_s in range(4 if s_opp > 0 else 0, total_games + 1, 2 if s_opp > 0 else total_games + 1):
             used = d_opp * g_d + s_opp * g_s
             rem = total_games - used
-            
             if rem < 0:
                 continue
 
             if i_opp > 0:
-                # Prevent zero-game interleague distributions if interleague is enabled
-                if rem == 0:
-                    continue
-                    
-                g_i = rem // i_opp
-                i_rem = rem % i_opp
-                
-                # Condition A: Perfect Math (Fictional setups)
-                if i_rem == 0 and g_i > 0:
-                    valid_sols.append({
-                        "g_div": g_d, "div_total": d_opp * g_d,
-                        "g_sub": g_s, "sub_total": s_opp * g_s, "sub_extra": 0,
-                        "g_inter": g_i, "inter_total": i_opp * g_i, "inter_extra": 0,
-                        "total_games": total_games,
-                        "is_pure_3g": (g_d % 3 == 0 and g_s % 3 == 0 and g_i % 3 == 0)
-                    })
-                
-                # Condition B: MLB Split Math (13 Div, 6/7 Sub, 3/4 Inter)
-                elif g_d == 13 and g_s == 6 and g_i == 3 and i_rem == 5:
-                    valid_sols.append({
-                        "g_div": g_d, "div_total": d_opp * g_d,
-                        "g_sub": f"{g_s}/{g_s+1}", "sub_total": s_opp * g_s + 4, "sub_extra": 4,
-                        "g_inter": f"{g_i}/{g_i+1}", "inter_total": (i_opp * g_i) + 1, "inter_extra": 1,
-                        "total_games": total_games,
-                        "is_pure_3g": False
-                    })
+                if rem > 0 and rem % i_opp == 0:
+                    g_i = rem // i_opp
+                    # Enforce minimum 4 games for Interleague to prevent 1-game series logic errors
+                    if g_i >= 4 and g_i % 2 == 0:
+                        valid_sols.append({
+                            "g_div": g_d, "div_total": d_opp * g_d,
+                            "g_sub": g_s, "sub_total": s_opp * g_s,
+                            "g_inter": g_i, "inter_total": i_opp * g_i,
+                            "total_games": total_games,
+                            "is_pure_3g": (g_d % 3 == 0 and g_s % 3 == 0 and g_i % 3 == 0)
+                        })
             else:
                 if rem == 0:
                     valid_sols.append({
                         "g_div": g_d, "div_total": d_opp * g_d,
-                        "g_sub": g_s, "sub_total": s_opp * g_s, "sub_extra": 0,
-                        "g_inter": 0, "inter_total": 0, "inter_extra": 0,
+                        "g_sub": g_s, "sub_total": s_opp * g_s,
+                        "g_inter": 0, "inter_total": 0,
                         "total_games": total_games,
                         "is_pure_3g": (g_d % 3 == 0 and g_s % 3 == 0)
                     })
 
-    # Sort heavily divisional options to the top (descending)
-    # We use 'sub_total' instead of 'g_sub' to safely avoid string comparison errors
-    valid_sols.sort(key=lambda x: (x["g_div"], x["is_pure_3g"], x["sub_total"]), reverse=True)
-
+    valid_sols.sort(key=lambda x: (x["g_div"], x["is_pure_3g"], x["g_sub"]), reverse=True)
     return valid_sols
-
 
 def prompt_user_for_distribution(solutions, d_opp, s_opp, i_opp):
     """Displays formatted breakdown choices and prompts user selection."""
     print("\n" + "=" * 85)
-    print(" AVAILABLE GAME DISTRIBUTION BREAKDOWNS (Exact 81H / 81A Balance)")
+    print(" AVAILABLE GAME DISTRIBUTION BREAKDOWNS (Exact Home / Away Balance)")
     print("=" * 85)
     print(f"{'Opt':<4} | {'Divisional':<23} | {'Subleague Non-Div':<23} | {'Interleague':<23}")
     print("-" * 85)
@@ -233,7 +182,7 @@ def prompt_user_for_distribution(solutions, d_opp, s_opp, i_opp):
 
 
 def build_dynamic_schedule(
-    subleagues, divs_per_sl, teams_per_div, total_games, chosen_sol, interleague=True, end_divisional=3
+    subleagues, divs_per_sl, teams_per_div, total_games, chosen_sol, interleague=True
 ):
     team_id = 1
     structure = {}
@@ -247,13 +196,12 @@ def build_dynamic_schedule(
 
     total_teams = team_id - 1
 
-    div_series_lengths = decompose_games_to_series(chosen_sol.get("g_div", 0))
-    sub_series_lengths = decompose_games_to_series(chosen_sol.get("g_sub", 0))
-    inter_series_lengths = decompose_games_to_series(chosen_sol.get("g_inter", 0))
+    div_series_lengths = decompose_games_to_series(chosen_sol["g_div"])
+    sub_series_lengths = decompose_games_to_series(chosen_sol["g_sub"]) if chosen_sol["g_sub"] > 0 else []
+    inter_series_lengths = decompose_games_to_series(chosen_sol["g_inter"]) if chosen_sol["g_inter"] > 0 else []
 
     div_windows, sub_windows, inter_windows = [], [], []
 
-    # 1. Base Divisional Windows
     if div_series_lengths:
         div_rounds_map = {
             (sl_id, div_id): generate_circle_rounds(div_teams)
@@ -275,7 +223,6 @@ def build_dynamic_schedule(
                         })
                 div_windows.append(window)
 
-    # 2. Base Subleague Windows
     if sub_series_lengths and divs_per_sl > 1:
         div_keys = list(structure[1].keys())
         div_pairs = [(div_keys[i], div_keys[j]) for i in range(len(div_keys)) for j in range(i + 1, len(div_keys))]
@@ -296,7 +243,6 @@ def build_dynamic_schedule(
                             })
                     sub_windows.append(window)
 
-    # 3. Base Interleague Windows
     if inter_series_lengths and subleagues > 1:
         sl1_teams = [t for div in structure[1].values() for t in div]
         sl2_teams = [t for div in structure[2].values() for t in div]
@@ -314,228 +260,199 @@ def build_dynamic_schedule(
                     })
                 inter_windows.append(window)
 
-    # =========================================================
-    # INJECTION: Apply Asymmetrical Splitting (e.g., 7-Game/4-Game series)
-    # =========================================================
-    sub_extra = chosen_sol.get("sub_extra", 0)
-    inter_extra = chosen_sol.get("inter_extra", 0)
-
-    def distribute_extras(windows_list, required_extras, max_series_length=4):
-        if required_extras <= 0 or not windows_list:
-            return
-        
-        team_extras = {t: 0 for t in range(1, total_teams + 1)}
-        upgraded_pairings = set()
-        
-        for window in windows_list:
-            for series in window:
-                h, a = series["home"], series["away"]
-                pairing = tuple(sorted([h, a]))
-                
-                # If both teams still need to satisfy their asymmetrical "extra" opponent count
-                if team_extras[h] < required_extras and team_extras[a] < required_extras:
-                    if pairing not in upgraded_pairings and series["length"] < max_series_length:
-                        series["length"] += 1
-                        team_extras[h] += 1
-                        team_extras[a] += 1
-                        upgraded_pairings.add(pairing)
-
-    distribute_extras(sub_windows, sub_extra)
-    distribute_extras(inter_windows, inter_extra)
-
-    # =========================================================
-    # BALANCING: Global Gradient Descent Home/Away Equalizer
-    # =========================================================
-    all_series_lists = [div_windows, sub_windows, inter_windows]
-    home_counts = {t: 0 for t in range(1, total_teams + 1)}
-    
-    # Pass 1: Count Initial Global Home Games
-    for lst in all_series_lists:
-        for window in lst:
-            for series in window:
-                home_counts[series["home"]] += series["length"]
-
-    target_home = total_games // 2
-    improved = True
-    passes = 0
-    
-    # Pass 2: Iteratively flip series to seek the 81-game H/A target for all teams
-    while improved and passes < 20:
-        improved = False
-        passes += 1
-        for lst in all_series_lists:
-            for window in lst:
-                for series in window:
-                    h, a, length = series["home"], series["away"], series["length"]
-                    
-                    err_before = abs(home_counts[h] - target_home) + abs(home_counts[a] - target_home)
-                    err_after = abs(home_counts[h] - length - target_home) + abs(home_counts[a] + length - target_home)
-                    
-                    # If flipping Home/Away reduces the total balance error, make the swap!
-                    if err_after < err_before:
-                        series["home"], series["away"] = a, h
-                        home_counts[h] -= length
-                        home_counts[a] += length
-                        improved = True
-
-    # =========================================================
-    # REASSEMBLY: Final window compilation
-    # =========================================================
-    reserved_div_windows = []
-    if divs_per_sl > 1 and end_divisional > 0 and len(div_windows) > end_divisional:
-        reserved_div_windows = div_windows[-end_divisional:]
-        div_windows = div_windows[:-end_divisional]
-
+    # ---------------------------------------------------------
+    # NEW LOGIC: Anchor Start and End with Divisional Matchups
+    # and Proportionally Distribute Remaining Series
+    # ---------------------------------------------------------
     windows = []
-    max_len = max(len(lst) for lst in all_series_lists) if any(all_series_lists) else 0
-
-    for idx in range(max_len):
-        for lst in all_series_lists:
-            if idx < len(lst):
-                windows.append(lst[idx])
-
-    windows.extend(reserved_div_windows)
+    
+    # Extract the first and last divisional windows to anchor the season
+    start_window = div_windows.pop(0) if div_windows else None
+    end_window = div_windows.pop(-1) if div_windows else None
+    
+    # Proportionally space the remaining middle series to prevent clustering
+    spread = []
+    
+    if div_windows:
+        for i, w in enumerate(div_windows):
+            # Calculate a relative float position between 0.0 and 1.0
+            spread.append(((i + 0.5) / len(div_windows), 0, w))
+            
+    if sub_windows:
+        for i, w in enumerate(sub_windows):
+            spread.append(((i + 0.5) / len(sub_windows), 1, w))
+            
+    if inter_windows:
+        for i, w in enumerate(inter_windows):
+            spread.append(((i + 0.5) / len(inter_windows), 2, w))
+            
+    # Sort by relative position (and then by source type to break ties consistently)
+    spread.sort(key=lambda x: (x[0], x[1]))
+    
+    # Extract just the window data now that it is evenly sorted
+    middle_windows = [item[2] for item in spread]
+                
+    # Reassemble the season with the divisional anchors
+    if start_window:
+        windows.append(start_window)
+        
+    windows.extend(middle_windows)
+    
+    if end_window:
+        windows.append(end_window)
 
     return windows, total_teams
 
 
-def expand_to_slotted_games(windows, target_asg_day=0, asg_before=2, asg_after=1, asg_weekday_num=None, start_dow=2, max_consecutive_days=20, end_divisional=3):
+def expand_to_slotted_games(windows, target_asg_day=0, asg_before=2, asg_after=1, asg_weekday_num=None, start_dow=2):
     slotted_games = []
+    actual_asg_day = 0
+    MIN_SPACING = 7 
     
-    # 1. Determine total teams
-    teams = set()
-    for w in windows:
-        for s in w:
-            teams.add(s["home"])
-            teams.add(s["away"])
-    total_teams = max(teams) if teams else 0
-
-    if total_teams == 0:
-        return [], 0
-
-    team_busy_days = {t: set() for t in range(1, total_teams + 1)}
-    
-    def is_free(t, start, length):
-        for d in range(start, start + length):
-            if d in team_busy_days[t]: return False
-        return True
-        
-    def current_streak(t, day):
-        """Calculates how many consecutive days a team has played leading up to a given day."""
-        c = 0
-        d = day - 1
-        while d in team_busy_days[t]:
-            c += 1
-            d -= 1
-        return c
-
-    # 2. Flatten windows into a total pool of available series
-    reserved_start_idx = len(windows) - end_divisional if len(windows) > end_divisional else len(windows)
-    normal_series = []
-    reserved_series = []
-    
-    for w_idx, w in enumerate(windows):
-        if w_idx >= reserved_start_idx:
-            reserved_series.extend(w)
-        else:
-            normal_series.extend(w)
-            
-    # 3. Phase 1: Forward-March packing for normal series
-    test_day = 1
-    while normal_series:
-        # Create a copy of the list so we can safely remove scheduled series during iteration
-        for s in list(normal_series):
-            h, a, length = s["home"], s["away"], s["length"]
-            
-            # Safety Valve: If the season is dragging past mid-September (Day 165+), 
-            # relax the streak rules slightly to snap the final games into place.
-            current_max_streak = max_consecutive_days + 5 if test_day > 165 else max_consecutive_days
-            
-            # If both teams are free and won't violate their exhaustion limit...
-            if is_free(h, test_day, length) and is_free(a, test_day, length):
-                if current_streak(h, test_day) + length <= current_max_streak and \
-                   current_streak(a, test_day) + length <= current_max_streak:
-                    
-                    # Book the series!
-                    for d in range(test_day, test_day + length):
-                        team_busy_days[h].add(d)
-                        team_busy_days[a].add(d)
-                        slotted_games.append({
-                            "day": d,
-                            "time": "1905" if d < test_day + length - 1 else "1305",
-                            "home": h,
-                            "away": a,
-                            "series_start": test_day,
-                            "series_length": length
-                        })
-                    normal_series.remove(s)
-                    
-        # Advance the master calendar clock by 1 day
-        test_day += 1
-
-    # 4. Phase 2: Pack reserved divisional series strictly at the end
-    global_max_day = max([d for days in team_busy_days.values() for d in days] + [0])
-    test_day = global_max_day + 1
-    
-    while reserved_series:
-        for s in list(reserved_series):
-            h, a, length = s["home"], s["away"], s["length"]
-            if is_free(h, test_day, length) and is_free(a, test_day, length):
-                # No streak limits applied here to guarantee the season ends in unison
-                for d in range(test_day, test_day + length):
-                    team_busy_days[h].add(d)
-                    team_busy_days[a].add(d)
-                    slotted_games.append({
-                        "day": d,
-                        "time": "1905" if d < test_day + length - 1 else "1305",
-                        "home": h,
-                        "away": a,
-                        "series_start": test_day,
-                        "series_length": length
-                    })
-                reserved_series.remove(s)
-        test_day += 1
-
-    # 5. Phase 3: Inject the All-Star Break cleanly across the global schedule
-    final_max_day = max([d for days in team_busy_days.values() for d in days] + [0])
-    final_asg_day = 0
-    
-    # We maintain your original custom ASG inputs[cite: 1].
     if target_asg_day > 0 or asg_weekday_num is not None:
         if target_asg_day == 0:
-            target_asg_day = final_max_day // 2
+            total_game_days = sum(max(s["length"] for s in w) if w else 3 for w in windows)
+            total_stagger_days = total_game_days // MIN_SPACING 
+            target_asg_day = (total_game_days + total_stagger_days) // 2
             
-        final_asg_day = target_asg_day
+        actual_asg_day = target_asg_day
         if asg_weekday_num is not None:
             diff = asg_weekday_num - get_weekday(target_asg_day, start_dow)
             if diff > 3: diff -= 7
             elif diff < -3: diff += 7
-            final_asg_day += diff
+            actual_asg_day += diff
             
-        break_start = final_asg_day - asg_before
-        break_end = final_asg_day + asg_after
-        break_length = (break_end - break_start) + 1
+        break_start = actual_asg_day - asg_before
+        target_first_half_end = break_start - 1
         
-        shifted = False
-        min_shifted_start = float('inf')
+        w_idx = 0
+        game_days = 0
+        while w_idx < len(windows):
+            ml = max(s["length"] for s in windows[w_idx]) if windows[w_idx] else 3
+            projected_off_days = game_days // MIN_SPACING 
+            if game_days + ml + projected_off_days > target_first_half_end:
+                break
+            game_days += ml
+            w_idx += 1
+            
+        W = w_idx
+        off_days_needed = target_first_half_end - game_days
+        first_half_off_days = [0] * W
         
-        for g in slotted_games:
-            series_end = g["series_start"] + g["series_length"] - 1
-            if series_end >= break_start:
-                if g["series_start"] < min_shifted_start:
-                    min_shifted_start = g["series_start"]
-                g["day"] += break_length
-                shifted = True
+        if W > 1 and off_days_needed > 0:
+            # Candidate slots: windows 1 to W-2 (locking final window W-1)
+            avail_slots = list(range(1, W - 1))
+            if off_days_needed > len(avail_slots):
+                avail_slots = list(range(1, W))
+            
+            n_avail = len(avail_slots)
+            num_to_place = min(off_days_needed, n_avail)
+            
+            # Evenly select distinct indices so sum(first_half_off_days) == off_days_needed
+            selected_indices = set()
+            for k in range(num_to_place):
+                slot_idx = int(round((k + 0.5) * n_avail / num_to_place - 0.5))
+                slot_idx = max(0, min(n_avail - 1, slot_idx))
+                while slot_idx in selected_indices and slot_idx < n_avail - 1:
+                    slot_idx += 1
+                while slot_idx in selected_indices and slot_idx > 0:
+                    slot_idx -= 1
+                selected_indices.add(slot_idx)
+                first_half_off_days[avail_slots[slot_idx]] = 1
+    else:
+        W = len(windows)
+        first_half_off_days = [0] * W
+        days_since_last = 0
+        for i in range(1, W - 1):
+            ml = max(s["length"] for s in windows[i-1]) if windows[i-1] else 3
+            days_since_last += ml
+            if days_since_last >= MIN_SPACING:
+                first_half_off_days[i] = 1
+                days_since_last -= MIN_SPACING
+        
+    day = 1 
+    
+    # 1. Schedule First Half 
+    for i in range(W):
+        series_list = windows[i]
+        max_len = max(s["length"] for s in series_list) if series_list else 3
+        stagger = first_half_off_days[i]
+        
+        half_idx = len(series_list) // 2
+        
+        for s_idx, series in enumerate(series_list):
+            h, a, length = series["home"], series["away"], series["length"]
+            
+            in_second_half = (s_idx >= half_idx)
+            shift = stagger if (in_second_half ^ (i % 2 == 0)) else 0
+            
+            start_day = day + shift
+            
+            for d in range(length):
+                slotted_games.append({
+                    "day": start_day + d,
+                    "time": "1905" if d < length - 1 else "1305",
+                    "home": h,
+                    "away": a,
+                })
+        
+        day += max_len + stagger
+        
+    # 2. Apply Strict ASG Break
+    if actual_asg_day > 0 and W < len(windows):
+        day = actual_asg_day + asg_after + 1
+        
+    # 3. Schedule Second Half
+    if W < len(windows):
+        second_half_lengths = [max(s["length"] for s in windows[w]) if windows[w] else 3 for w in range(W, len(windows))]
+        SH_W = len(second_half_lengths)
+        second_half_off_days = [0] * SH_W
+        
+        if SH_W > 1:
+            allowed_sh_off_days = sum(second_half_lengths) // MIN_SPACING
+            sh_avail_slots = list(range(1, SH_W - 1)) if SH_W > 2 else list(range(1, SH_W))
+            n_sh_avail = len(sh_avail_slots)
+            
+            if n_sh_avail > 0 and allowed_sh_off_days > 0:
+                num_sh_to_place = min(allowed_sh_off_days, n_sh_avail)
+                selected_sh_indices = set()
                 
-        if shifted:
-            final_asg_day = min_shifted_start + asg_before
+                for k in range(num_sh_to_place):
+                    slot_idx = int(round((k + 0.5) * n_sh_avail / num_sh_to_place - 0.5))
+                    slot_idx = max(0, min(n_sh_avail - 1, slot_idx))
+                    while slot_idx in selected_sh_indices and slot_idx < n_sh_avail - 1:
+                        slot_idx += 1
+                    while slot_idx in selected_sh_indices and slot_idx > 0:
+                        slot_idx -= 1
+                    selected_sh_indices.add(slot_idx)
+                    second_half_off_days[sh_avail_slots[slot_idx]] = 1
+                    
+        for idx, i in enumerate(range(W, len(windows))):
+            series_list = windows[i]
+            max_len = second_half_lengths[idx]
+            stagger = second_half_off_days[idx]
             
-    # Cleanup utility keys
-    for g in slotted_games:
-        g.pop("series_start", None)
-        g.pop("series_length", None)
-        
-    return sorted(slotted_games, key=lambda x: (x["day"], x["home"])), final_asg_day
+            half_idx = len(series_list) // 2
+            
+            for s_idx, series in enumerate(series_list):
+                h, a, length = series["home"], series["away"], series["length"]
+                
+                in_second_half = (s_idx >= half_idx)
+                shift = stagger if (in_second_half ^ (idx % 2 == 0)) else 0
+                
+                start_day = day + shift
+                
+                for d in range(length):
+                    slotted_games.append({
+                        "day": start_day + d,
+                        "time": "1905" if d < length - 1 else "1305",
+                        "home": h,
+                        "away": a,
+                    })
+            
+            day += max_len + stagger
+            
+    return sorted(slotted_games, key=lambda x: (x["day"], x["home"])), actual_asg_day
 
 
 def main():
@@ -557,7 +474,6 @@ def main():
     parser.add_argument("-sd", "--start-day", type=int, default=1)
     parser.add_argument("-o", "--output", type=str, default=None)
     parser.add_argument("--non-interactive", action="store_true", help="Auto-select top breakdown option")
-    parser.add_argument("-ed", "--end-divisional", type=int, default=3, help="Number of divisional series reserved strictly for the end of the season")
 
     args = parser.parse_args()
 
@@ -569,7 +485,7 @@ def main():
 
     il_flag = str(args.interleague) if args.interleague is not None else ("1" if args.subleagues > 1 else "0")
     bg_flag = str(args.balanced)
-    
+
     il_str = "ILY" if il_flag == "1" else "ILN"
     bg_str = "BGY" if bg_flag == "1" else "BGN"
     
@@ -579,8 +495,7 @@ def main():
     s_opp = (args.divisions - 1) * args.teams_per_div
     i_opp = (args.subleagues - 1) * args.divisions * args.teams_per_div if il_flag == "1" else 0
 
-    is_balanced = (args.balanced == 1)
-    solutions = find_all_valid_distributions(args.games, d_opp, s_opp, i_opp, is_balanced=is_balanced)
+    solutions = find_all_valid_distributions(args.games, d_opp, s_opp, i_opp)
 
     if not solutions:
         print(f"Error: No valid game distributions found for {args.games} games.")
@@ -596,9 +511,7 @@ def main():
     filename = args.output if args.output else f"{type_attr}.lsdl"
 
     windows, total_teams = build_dynamic_schedule(
-        args.subleagues, args.divisions, args.teams_per_div, args.games, chosen_sol, 
-        interleague=(il_flag == "1"), 
-        end_divisional=args.end_divisional
+        args.subleagues, args.divisions, args.teams_per_div, args.games, chosen_sol, interleague=(il_flag == "1")
     )
     
     slotted_games, final_asg_day = expand_to_slotted_games(
@@ -607,8 +520,7 @@ def main():
         asg_before=args.asg_before, 
         asg_after=args.asg_after,
         asg_weekday_num=asg_weekday_num,
-        start_dow=sdw_num,
-        end_divisional=args.end_divisional
+        start_dow=sdw_num
     )
 
     root_attrs = {
