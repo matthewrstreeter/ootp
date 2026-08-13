@@ -21,7 +21,7 @@ This script generates custom OOTP baseball schedule files in XML format for leag
 
 ### ootp_schedule_generator.py
 
-Generates a full season schedule for an OOTP league, including home/away balancing, mixed series lengths, calendar-aware spacing, and optional end-of-season divisional locking. The output is intended for use as an OOTP `.lsdl` schedule file.
+Generates a full season schedule for an OOTP league, including home/away balancing, mixed series lengths, and calendar-aware spacing. The output is intended for use as an OOTP `.lsdl` schedule file.
 
 **Prerequisites:**
 - Python 3
@@ -31,12 +31,11 @@ Generates a full season schedule for an OOTP league, including home/away balanci
 - Multiple subleagues and divisions
 - Configurable team counts per division
 - Adjustable games per team
-- Mixed-length series support, including standard 2/3/4-game patterns and MLB-style odd/split logic such as 6/7 and 3/4
+- Mixed-length series support with standard 2/3/4-game patterns
 - Optional interleague play, with default enabling when more than one subleague is present
 - Auto or interactive valid distribution selection, including exact-match breakdown previews
 - XML output compatible with OOTP schedule imports
 - Dynamic All-Star Game placement based on target day or weekday
-- Reserved end-of-season divisional windows to close the schedule cleanly
 - Realistic calendar packing with consecutive-day limits and deliberate final-weekend lock-in behavior
 - Optional balanced-game XML flag written as `balanced_games`
 - Home/away balancing and series reordering logic to reduce parity drift across the season
@@ -91,7 +90,7 @@ python ootp_schedule_generator.py \
   --non-interactive
 ```
 
-This can generate valid odd-count breakdowns such as divisional totals that include 13-game patterns and split subleague/interleague series, while still maintaining a realistic season timeline and calendar-friendly All-Star break.
+This maintains a realistic season timeline and calendar-friendly All-Star break.
 
 **Command-Line Parameters:**
 - `-s, --subleagues`: Number of subleagues in the league.
@@ -109,7 +108,6 @@ This can generate valid odd-count breakdowns such as divisional totals that incl
 - `-sd, --start-day`: Day of the month the schedule should begin on.
 - `-o, --output`: Custom output filename for the generated XML.
 - `--non-interactive`: Skip the breakdown prompt and automatically select the first valid option.
-- `-ed, --end-divisional`: Number of divisional series to reserve for the very end of the season. This helps lock divisional play into the final stretch and keeps the finish more realistic.
 
 **Interactive Schedule Breakdown Selection:**
 
@@ -125,17 +123,14 @@ The script validates possible game distributions before generating the schedule.
 - all 3-game series
 - mixed 3-game and 4-game series
 - mixed 2-game and 3-game series
-- odd-count MLB-style variants such as 13-game divisional splits and 6/7 or 3/4 subleague/interleague breakdowns
 
-The generator now evaluates the full set of valid combinations and includes a breakdown preview that shows the exact divisional, subleague, and interleague totals for each option. In non-interactive mode, it automatically selects the first valid solution; in interactive mode, the user can choose from the full list of valid schedules.
-
-The schedule builder also contains logic for asymmetrical split series, where an opponent pair can be upgraded from a shorter series length to a longer one to satisfy exact totals while keeping the season’s spacing and home/away balance realistic.
+The generator evaluates the full set of valid combinations and includes a breakdown preview that shows the exact divisional, subleague, and interleague totals for each option. In non-interactive mode, it automatically selects the first valid solution; in interactive mode, the user can choose from the full list of valid schedules.
 
 **All-Star Game Placement:**
 
 When `-a` or `-aw` is provided, the script attempts to place the All-Star break in a realistic calendar position while preserving the season structure. The calculation adjusts the actual break day to the nearest valid weekday and reserves the requested number of days before and after the break. This keeps the All-Star break anchored to the season timeline without disrupting the series flow.
 
-The script also allows the season to close out with a set number of reserved divisional windows using `-ed`, which helps keep the final stretch geographically and competitively realistic. If both `-a` and `-aw` are provided, the weekday override takes precedence.
+If both `-a` and `-aw` are provided, the weekday override takes precedence.
 
 **Output:**
 
@@ -169,8 +164,9 @@ Each game is written as a `<GAME>` element with:
 - If `stdin` is not a TTY or `--non-interactive` is passed, it automatically chooses the first valid distribution.
 - `-aw` overrides the target date from `-a` when both are present.
 - `start_day_of_week` is encoded on a Sunday-to-Saturday scale (`1-7`) to match the script’s internal weekday calculations.
-- The script preserves both the target total game count and the exact split-series structure, including MLB-style odd totals and asymmetrical series patterns.
-- The seasonal packing logic keeps series spaced realistically while reserving a final divisional closing stretch when `-ed` is used.
+- The script preserves both the target total game count and the exact series structure.
 - The schedule format is intended for OOTP import and is not a general baseball scheduling library.
 
 ---
+
+This script is designed for personal and league-use scheduling work. It is provided as-is and can be adapted to fit a specific league format or custom OOTP setup.
