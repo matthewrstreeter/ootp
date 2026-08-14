@@ -1,4 +1,4 @@
-# OOTP Schedule Generator
+# OOTP Custom Schedule Generator
 
 This script generates custom OOTP baseball schedule files in XML format for leagues with multiple subleagues, divisions, and teams. It supports balanced intra-division scheduling, mixed-length series, optional interleague play, and dynamic All-Star Game placement while keeping the season timeline realistic.
 
