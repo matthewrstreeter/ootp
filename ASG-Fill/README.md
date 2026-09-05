@@ -18,7 +18,7 @@ It automatically:
 ## Files
 
 - `ASG-Fill.py` — main script
-- `votes.json` — vote export from OOTP
+- `votes.json` — vote export from StatsPlus /votes API
 
 ## Requirements
 
