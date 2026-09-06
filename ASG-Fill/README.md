@@ -1,6 +1,6 @@
 # OOTP All-Star Ballot Filler
 
-This script fills an OOTP All-Star ballot template from a votes export and writes the final team selection text for a league using either of the two common OOTP roster layouts:
+This script fills an OOTP All-Star ballot template from a StatsPlus votes export from the /votes API and writes the final team selection text for a league using either of the two common OOTP roster layouts:
 
 - LF/CF/RF + DH
 - 3 OF + no DH
